@@ -1,0 +1,27 @@
+[package]
+name = "rust_chain"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+hex = "0.4"
+ring = "0.16" # Crypto
+tokio = { version = "1.0", features = ["full"] } # Async runtime
+clap = { version = "4.0", features = ["derive"] } # CLI
+tracing = "0.1" # Logging
+tracing-subscriber = "0.3"
+rocksdb = "0.20" # Database
+bincode = "1.3" # Serialization
+libp2p = { version = "0.53", features = [
+    "tcp",          # TCP transport (Tokio-based by default)
+    "dns",          # DNS peer resolution
+    "noise",        # Encryption
+    "yamux",        # Multiplexing
+    "macros",       # For #[derive(NetworkBehaviour)]
+    "identify",     # Peer identification
+    "kad",          # Kademlia DHT (for peer discovery)
+    "ping",         # Keepalive pings
+] }
