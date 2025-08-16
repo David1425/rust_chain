@@ -58,4 +58,18 @@ impl Block {
 		header.hash = sha256_hash(&format!("{:?}{:?}", &header, &transactions));
 		Block { header, transactions }
 	}
+
+	/// Calculate the hash of this block (matches the original calculation)
+	pub fn calculate_hash(&self) -> String {
+		// Recreate the header without the hash field for calculation
+		let temp_header = BlockHeader {
+			previous_hash: self.header.previous_hash.clone(),
+			timestamp: self.header.timestamp,
+			nonce: self.header.nonce,
+			merkle_root: self.header.merkle_root.clone(),
+			hash: String::new(), // Empty hash for calculation
+			height: self.header.height,
+		};
+		sha256_hash(&format!("{:?}{:?}", &temp_header, &self.transactions))
+	}
 }

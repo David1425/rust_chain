@@ -207,8 +207,8 @@ impl BlockchainRpcHandler {
 
     /// Create a new address
     fn get_new_address(&self) -> Result<Value, JsonRpcError> {
-        // Return the wallet's address
-        Ok(Value::String(self.wallet.address.clone()))
+        // Return a new address without mutating the wallet
+        Ok(Value::String(self.wallet.get_new_address_readonly()))
     }
 
     /// List transactions

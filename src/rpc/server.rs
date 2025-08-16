@@ -155,7 +155,7 @@ impl RpcServer {
                 "memory_usage": mempool_stats.total_size_bytes
             },
             "wallet": {
-                "address": handler.wallet.address.clone(),
+                "address": handler.wallet.get_current_address().unwrap_or_else(|| "No address generated".to_string()),
                 "balance": 1000000 // Simplified
             }
         });

@@ -33,8 +33,8 @@ fn test_chain_add_block() {
 
 #[test]
 fn test_wallet_address_generation() {
-    let wallet = Wallet::new();
-    assert!(!wallet.address.is_empty());
+    let mut wallet = Wallet::new();
+    assert!(!wallet.address().is_empty());
 }
 
 #[test]

@@ -1,4 +1,4 @@
-use rust_chain::cli::{CLI, BlockchainCommands, MempoolCommands, MiningCommands, NetworkCommands};
+use rust_chain::cli::{CLI, BlockchainCommands, MempoolCommands, MiningCommands, NetworkCommands, WalletCommands, AnalyticsCommands};
 use rust_chain::blockchain::block::Transaction;
 use std::env;
 
@@ -169,6 +169,112 @@ fn main() {
                 eprintln!("Error in mempool demo: {}", e);
             }
         },
+        // **Phase 8 - Advanced Wallet Commands**
+        "generate-address" => {
+            match cli.generate_new_address() {
+                Ok(address) => println!("New address generated: {}", address),
+                Err(e) => eprintln!("Error generating address: {}", e),
+            }
+        },
+        "list-addresses" => {
+            let addresses = cli.list_addresses();
+            if addresses.is_empty() {
+                println!("No addresses found in wallet");
+            } else {
+                println!("Wallet addresses:");
+                for (i, addr) in addresses.iter().enumerate() {
+                    println!("  {}: {}", i, addr);
+                }
+            }
+        },
+        "show-seed" => {
+            println!("IMPORTANT: Keep this seed phrase safe and private!");
+            println!("Seed phrase: {}", cli.show_seed_phrase());
+        },
+        "restore-wallet" => {
+            if args.len() < 3 {
+                eprintln!("Usage: {} restore-wallet \"<seed phrase>\"", args[0]);
+                return;
+            }
+            
+            match cli.restore_from_seed(&args[2]) {
+                Ok(_) => println!("Wallet restored successfully"),
+                Err(e) => eprintln!("Error restoring wallet: {}", e),
+            }
+        },
+        "wallet-stats" => {
+            let stats = cli.get_wallet_stats();
+            println!("Wallet Statistics:");
+            println!("  Total addresses: {}", stats.total_addresses);
+            println!("  Next index: {}", stats.next_index);
+            println!("  Master fingerprint: {}", stats.master_fingerprint);
+        },
+        "backup-wallet" => {
+            let path = if args.len() > 2 {
+                &args[2]
+            } else {
+                "wallet_backup.json"
+            };
+            
+            match cli.backup_wallet(path) {
+                Ok(_) => println!("Wallet backed up to: {}", path),
+                Err(e) => eprintln!("Error backing up wallet: {}", e),
+            }
+        },
+        // **Phase 8 - Analytics Commands**
+        "analyze-chain" => {
+            let analytics = cli.analyze_chain();
+            println!("Blockchain Analysis:");
+            println!("  Total blocks: {}", analytics.total_blocks);
+            println!("  Total transactions: {}", analytics.total_transactions);
+            println!("  Total size: {} bytes", analytics.total_size_bytes);
+            println!("  Average block time: {} seconds", analytics.average_block_time_seconds);
+            println!("  Chain start time: {}", analytics.chain_start_time);
+            println!("  Latest block time: {}", analytics.chain_latest_time);
+        },
+        "block-stats" => {
+            let height = if args.len() > 2 {
+                args[2].parse::<u64>().ok()
+            } else {
+                None
+            };
+            
+            match cli.get_block_stats(height) {
+                Ok(stats) => {
+                    println!("Block Statistics:");
+                    println!("  Height: {}", stats.height);
+                    println!("  Hash: {}", stats.hash);
+                    println!("  Timestamp: {}", stats.timestamp);
+                    println!("  Transactions: {}", stats.transaction_count);
+                    println!("  Size: {} bytes", stats.size_bytes);
+                    println!("  Nonce: {}", stats.nonce);
+                    println!("  Previous hash: {}", stats.previous_hash);
+                },
+                Err(e) => eprintln!("Error getting block stats: {}", e),
+            }
+        },
+        "transaction-stats" => {
+            let stats = cli.get_transaction_stats();
+            println!("Transaction Statistics:");
+            println!("  Total transactions: {}", stats.total_transactions);
+            println!("  Total value transferred: {}", stats.total_value_transferred);
+            println!("  Unique addresses: {}", stats.unique_addresses);
+            println!("  Average transaction value: {}", stats.average_transaction_value);
+        },
+        "validate-chain" => {
+            let report = cli.validate_chain_integrity();
+            println!("Chain Integrity Report:");
+            println!("  Total blocks: {}", report.total_blocks);
+            println!("  Valid blocks: {}", report.valid_blocks);
+            println!("  Is valid: {}", report.is_valid);
+            
+            if !report.issues.is_empty() {
+                println!("  Issues found:");
+                for issue in &report.issues {
+                    println!("    - {}", issue);
+                }
+            }
+        },
         "help" | "--help" | "-h" => {
             print_help();
         },
@@ -182,27 +288,47 @@ fn main() {
 fn print_help() {
     println!("Rust Chain - Simple Blockchain Implementation");
     println!();
-    println!("Usage:");
-    println!("  rust_chain init-chain               Initialize a new blockchain");
-    println!("  rust_chain show-blocks              Show all blocks in the chain");
-    println!("  rust_chain stats                    Show blockchain statistics");
-    println!("  rust_chain chain-info               Show blockchain information (alias for stats)");
-    println!("  rust_chain mine-block               Mine a new block with sample transaction");
-    println!("  rust_chain mining-stats             Show mining statistics");
-    println!("  rust_chain fork-stats               Show fork choice statistics");
-    println!("  rust_chain add-block                Add a new block with sample transaction");
-    println!("  rust_chain add-transaction <from> <to> <amount> Add transaction to mempool");
-    println!("  rust_chain mempool-stats             Show mempool statistics");
-    println!("  rust_chain pending-transactions      Show all pending transactions");
-    println!("  rust_chain mine-mempool              Mine a block using mempool transactions");
-    println!("  rust_chain clear-mempool             Clear all transactions from mempool
-  rust_chain demo-mempool              Demonstrate complete mempool workflow");
-    println!("  rust_chain get-block <hash>         Get block by hash");
-    println!("  rust_chain start-node [addr] [port] Start P2P network node (default: 127.0.0.1:8333)");
-    println!("  rust_chain connect-peer <addr> <port> Connect to a peer");
-    println!("  rust_chain start-rpc [port]         Start JSON-RPC server (default: 8545)");
-    println!("  rust_chain discover-peers [seeds...] Discover peers using seed nodes");
-    println!("  rust_chain show-peers               Show connected peers");
-    println!("  rust_chain network-stats            Show network statistics");
-    println!("  rust_chain help                     Show this help message");
+    println!("BASIC COMMANDS:");
+    println!("  init-chain               Initialize a new blockchain");
+    println!("  show-blocks              Show all blocks in the chain");
+    println!("  stats                    Show blockchain statistics");
+    println!("  chain-info               Show blockchain information (alias for stats)");
+    println!("  help                     Show this help message");
+    println!();
+    println!("MINING COMMANDS:");
+    println!("  mine-block               Mine a new block with sample transaction");
+    println!("  mining-stats             Show mining statistics");
+    println!("  fork-stats               Show fork choice statistics");
+    println!("  add-block                Add a new block with sample transaction");
+    println!("  mine-mempool             Mine a block using mempool transactions");
+    println!();
+    println!("TRANSACTION & MEMPOOL:");
+    println!("  add-transaction <from> <to> <amount> Add transaction to mempool");
+    println!("  mempool-stats            Show mempool statistics");
+    println!("  pending-transactions     Show all pending transactions");
+    println!("  clear-mempool            Clear all transactions from mempool");
+    println!("  demo-mempool             Demonstrate complete mempool workflow");
+    println!();
+    println!("NETWORKING COMMANDS:");
+    println!("  start-node [addr] [port] Start P2P network node (default: 127.0.0.1:8333)");
+    println!("  connect-peer <addr> <port> Connect to a peer");
+    println!("  start-rpc [port]         Start JSON-RPC server (default: 8545)");
+    println!("  discover-peers [seeds...] Discover peers using seed nodes");
+    println!("  show-peers               Show connected peers");
+    println!("  network-stats            Show network statistics");
+    println!();
+    println!("PHASE 8 - WALLET COMMANDS:");
+    println!("  generate-address         Generate a new wallet address");
+    println!("  list-addresses           List all wallet addresses");
+    println!("  show-seed                Show wallet seed phrase (keep safe!)");
+    println!("  restore-wallet \"<phrase>\" Restore wallet from seed phrase");
+    println!("  wallet-stats             Show wallet statistics");
+    println!("  backup-wallet [path]     Backup wallet to file (default: wallet_backup.json)");
+    println!();
+    println!("PHASE 8 - ANALYTICS COMMANDS:");
+    println!("  analyze-chain            Comprehensive blockchain analysis");
+    println!("  block-stats [height]     Detailed statistics for a block");
+    println!("  transaction-stats        Transaction statistics across the chain");
+    println!("  validate-chain           Validate blockchain integrity");
+    println!("  get-block <hash>         Get block by hash");
 }
