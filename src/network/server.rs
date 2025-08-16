@@ -295,6 +295,10 @@ impl NetworkServer {
         let mut stream = TcpStream::connect(&peer_address)
             .map_err(|e| NetworkError::ConnectionFailed(format!("Failed to connect to {}: {}", peer_address, e)))?;
         
+        // Set timeout for handshake
+        stream.set_read_timeout(Some(Duration::from_secs(10)))
+            .map_err(|e| NetworkError::ConnectionFailed(format!("Failed to set timeout: {}", e)))?;
+        
         // Send handshake
         let chain_guard = self.chain.lock().unwrap();
         let chain_height = chain_guard.blocks.len() as u64 - 1;
@@ -308,7 +312,37 @@ impl NetworkServer {
         
         Self::send_message(&mut stream, handshake)?;
         
-        println!("Connected to peer at {}", peer_address);
+        // Wait for handshake response
+        match Self::read_message(&mut stream) {
+            Ok(response) => {
+                if let MessageType::Handshake { version, node_id: peer_node_id, chain_height: peer_height } = response.message_type {
+                    println!("Received handshake response from peer {} (version: {}, height: {})", 
+                        peer_node_id, version, peer_height);
+                    
+                    // Add peer to our peer list
+                    let peer_info = PeerInfo {
+                        address: address.to_string(),
+                        port,
+                        node_id: peer_node_id,
+                        last_seen: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+                        chain_height: peer_height,
+                    };
+                    
+                    self.peers.lock().unwrap().insert(peer_info.node_id.clone(), peer_info);
+                    println!("Connected to peer at {} successfully", peer_address);
+                } else {
+                    return Err(NetworkError::ProtocolError("Expected handshake response".to_string()));
+                }
+            },
+            Err(e) => {
+                return Err(NetworkError::ConnectionFailed(format!("Failed to receive handshake response: {}", e)));
+            }
+        }
+        
+        // Keep connection alive for a short time to establish the peer relationship
+        // In a real implementation, this would be managed by a connection pool
+        thread::sleep(Duration::from_millis(100));
+        
         Ok(())
     }
 

@@ -47,11 +47,8 @@ impl NetworkCommands for CLI {
         server.connect_to_peer(&address, port)
             .map_err(|e| format!("Failed to connect to peer: {}", e))?;
         
-        // After connecting, attempt to sync blockchain
-        println!("Connected! Attempting blockchain synchronization...");
-        if let Err(e) = server.sync_blockchain() {
-            eprintln!("Warning: Blockchain sync failed: {}", e);
-        }
+        // Give the connection a moment to establish properly
+        std::thread::sleep(std::time::Duration::from_millis(200));
         
         // Show network statistics
         let stats = server.get_network_stats();
@@ -60,6 +57,18 @@ impl NetworkCommands for CLI {
         println!("  Our chain height: {}", stats.our_chain_height);
         println!("  Max peer height: {}", stats.max_peer_height);
         println!("  Synchronized: {}", if stats.is_synced { "Yes" } else { "No" });
+        
+        // After showing initial stats, attempt to sync blockchain
+        if stats.connected_peers > 0 {
+            println!("Connected! Attempting blockchain synchronization...");
+            if let Err(e) = server.sync_blockchain() {
+                eprintln!("Warning: Blockchain sync failed: {}", e);
+            } else {
+                println!("Blockchain synchronization completed successfully");
+            }
+        } else {
+            println!("Warning: No peers connected after handshake");
+        }
         
         Ok(())
     }
