@@ -15,13 +15,14 @@ pub struct BlockHeader {
 	pub timestamp: u64,
 	pub nonce: u64,
 	pub merkle_root: String,
+	pub hash: String,
+	pub height: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
 	pub header: BlockHeader,
 	pub transactions: Vec<Transaction>,
-	pub hash: String,
 }
 
 fn calculate_merkle_root(transactions: &Vec<Transaction>) -> String {
@@ -44,15 +45,17 @@ fn calculate_merkle_root(transactions: &Vec<Transaction>) -> String {
 }
 
 impl Block {
-	pub fn new(previous_hash: String, transactions: Vec<Transaction>, nonce: u64, timestamp: u64) -> Self {
+	pub fn new(previous_hash: String, transactions: Vec<Transaction>, nonce: u64, timestamp: u64, height: u64) -> Self {
 		let merkle_root = calculate_merkle_root(&transactions);
-		let header = BlockHeader {
+		let mut header = BlockHeader {
 			previous_hash,
 			timestamp,
 			nonce,
 			merkle_root,
+			hash: String::new(), // Will be calculated below
+			height,
 		};
-		let hash = sha256_hash(&format!("{:?}{:?}", &header, &transactions));
-		Block { header, transactions, hash }
+		header.hash = sha256_hash(&format!("{:?}{:?}", &header, &transactions));
+		Block { header, transactions }
 	}
 }

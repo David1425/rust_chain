@@ -20,7 +20,8 @@ impl Chain {
 	}
 
 	pub fn validate_block(&self, block: &Block) -> bool {
-		let last_hash = self.blocks.last().map(|b| b.hash.clone()).unwrap_or_default();
-		block.header.previous_hash == last_hash
+		let last_hash = self.blocks.last().map(|b| b.header.hash.clone()).unwrap_or_default();
+		let expected_height = self.blocks.len() as u64;
+		block.header.previous_hash == last_hash && block.header.height == expected_height
 	}
 }

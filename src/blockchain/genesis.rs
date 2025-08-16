@@ -12,5 +12,6 @@ pub fn genesis_block() -> Block {
 		vec![tx],
 		0,
 		0,
+		0, // Genesis block is at height 0
 	)
 }

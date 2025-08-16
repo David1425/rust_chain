@@ -5,6 +5,7 @@ use rust_chain::blockchain::state::{State, UTXO};
 use rust_chain::wallet::keychain::Wallet;
 use rust_chain::wallet::signer::sign_message;
 use rust_chain::crypto::keys::generate_keypair;
+use rust_chain::verify_signature;
 
 #[test]
 fn test_genesis_block() {
@@ -23,8 +24,8 @@ fn test_chain_add_block() {
         amount: 10,
         signature: vec![],
     };
-    let prev_hash = chain.blocks.last().unwrap().hash.clone();
-    let block = Block::new(prev_hash, vec![tx], 1, 12345);
+    let prev_hash = chain.blocks.last().unwrap().header.hash.clone();
+    let block = Block::new(prev_hash, vec![tx], 1, 12345, 1);
     assert!(chain.add_block(block));
     assert_eq!(chain.blocks.len(), 2);
 }
@@ -40,8 +41,18 @@ fn test_sign_and_verify() {
     let keypair = generate_keypair();
     let message = b"hello blockchain";
     let signature = sign_message(&keypair, message);
-    // TODO: Implement signature verification and test it here
+    
+    // Test signature verification
+    let public_key = keypair.verifying_key();
+    let is_valid = verify_signature(&public_key, message, &signature);
+    
     assert_eq!(signature.len(), 64);
+    assert!(is_valid);
+    
+    // Test with wrong message
+    let wrong_message = b"wrong message";
+    let is_invalid = verify_signature(&public_key, wrong_message, &signature);
+    assert!(!is_invalid);
 }
 
 #[test]
