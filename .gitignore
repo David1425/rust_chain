@@ -3,3 +3,11 @@ Cargo.lock
 plan.txt
 notes.md
 wallet.json
+
+# Blockchain data (should not be committed)
+blockchain_data/
+temp_block_store/
+*.log
+*.sst
+MANIFEST-*
+OPTIONS-*
