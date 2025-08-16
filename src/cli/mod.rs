@@ -29,23 +29,37 @@ pub struct CLI {
 }
 
 impl CLI {
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self, String> {
         let chain = Chain::new();
         let fork_choice = ForkChoice::with_genesis_chain(chain.clone());
         
-        CLI {
+        Ok(CLI {
             chain,
-            block_store: BlockStore::new(),
+            block_store: BlockStore::new()?,
             mining_pool: MiningPool::new(4), // Default difficulty of 4
             fork_choice,
             mempool: Mempool::new(),
             wallet: Wallet::new(),
-        }
+        })
+    }
+    
+    pub fn new_with_path(db_path: &str) -> Result<Self, String> {
+        let chain = Chain::new();
+        let fork_choice = ForkChoice::with_genesis_chain(chain.clone());
+        
+        Ok(CLI {
+            chain,
+            block_store: BlockStore::new_with_path(db_path)?,
+            mining_pool: MiningPool::new(4), // Default difficulty of 4
+            fork_choice,
+            mempool: Mempool::new(),
+            wallet: Wallet::new(),
+        })
     }
 }
 
 impl Default for CLI {
     fn default() -> Self {
-        Self::new()
+        Self::new().expect("Failed to create default CLI")
     }
 }

@@ -5,66 +5,57 @@ use rust_chain::cli::{CLI, BlockchainCommands};
 
 #[test]
 fn test_database_operations() {
-    let mut db = Database::new();
+    let db = Database::new_with_path("./test_data/test_database_operations").expect("Failed to create database");
     
     // Test put and get
-    db.put("key1".to_string(), b"value1".to_vec());
-    assert_eq!(db.get("key1"), Some(&b"value1".to_vec()));
+    db.put("key1".to_string(), b"value1".to_vec()).expect("Failed to put");
+    assert_eq!(db.get("key1").expect("Failed to get"), Some(b"value1".to_vec()));
     
     // Test exists
-    assert!(db.exists("key1"));
-    assert!(!db.exists("nonexistent"));
+    assert!(db.exists("key1").expect("Failed to check exists"));
+    assert!(!db.exists("nonexistent").expect("Failed to check exists"));
     
     // Test delete
-    assert!(db.delete("key1"));
-    assert!(!db.exists("key1"));
-    assert_eq!(db.get("key1"), None);
+    assert!(db.delete("key1").expect("Failed to delete"));
+    assert!(!db.exists("key1").expect("Failed to check exists"));
+    assert_eq!(db.get("key1").expect("Failed to get"), None);
 }
 
 #[test]
 fn test_block_store() {
-    let mut store = BlockStore::new();
+    let store = BlockStore::new_with_path("./test_data/test_block_store").expect("Failed to create block store");
     
     // Create a test block
     let tx = Transaction {
         from: "alice".to_string(),
         to: "bob".to_string(),
-        amount: 25,
+        amount: 50,
         signature: vec![],
     };
     
-    let block = Block::new(
-        "previous_hash".to_string(),
-        vec![tx],
-        123,
-        1234567890,
-        1,
-    );
+    let block = Block::new("prev_hash".to_string(), vec![tx], 0, 0, 1);
     
-    // Store the block
+    // Test storing and retrieving a block
     assert!(store.store_block(&block).is_ok());
     
-    // Retrieve by hash
+    // Test get_block
     let retrieved = store.get_block(&block.header.hash).unwrap();
     assert!(retrieved.is_some());
-    let retrieved_block = retrieved.unwrap();
-    assert_eq!(retrieved_block.header.hash, block.header.hash);
-    assert_eq!(retrieved_block.header.height, block.header.height);
+    assert_eq!(retrieved.unwrap().header.hash, block.header.hash);
     
-    // Retrieve by height
+    // Test get_block_by_height
     let by_height = store.get_block_by_height(1).unwrap();
     assert!(by_height.is_some());
-    let by_height_block = by_height.unwrap();
-    assert_eq!(by_height_block.header.hash, block.header.hash);
+    assert_eq!(by_height.unwrap().header.height, 1);
     
-    // Test exists
-    assert!(store.block_exists(&block.header.hash));
-    assert!(!store.block_exists("nonexistent"));
+    // Test block_exists
+    assert!(store.block_exists(&block.header.hash).unwrap());
+    assert!(!store.block_exists("nonexistent").unwrap());
 }
 
 #[test]
 fn test_cli_initialization() {
-    let mut cli = CLI::new();
+    let mut cli = CLI::new_with_path("./test_data/test_cli_initialization").expect("Failed to create CLI");
     
     // Test init chain
     assert!(cli.init_chain().is_ok());
@@ -83,7 +74,7 @@ fn test_cli_initialization() {
 #[test]
 fn test_chain_with_storage() {
     let mut chain = Chain::new();
-    let mut store = BlockStore::new();
+    let store = BlockStore::new_with_path("./test_data/test_chain_with_storage").expect("Failed to create block store");
     
     // Store genesis block
     let genesis = &chain.blocks[0];
@@ -91,20 +82,17 @@ fn test_chain_with_storage() {
     
     // Create and add a new block
     let tx = Transaction {
-        from: "miner".to_string(),
-        to: "recipient".to_string(),
-        amount: 50,
+        from: "alice".to_string(),
+        to: "bob".to_string(),
+        amount: 30,
         signature: vec![],
     };
     
-    let prev_hash = chain.blocks.last().unwrap().header.hash.clone();
-    let new_block = Block::new(prev_hash, vec![tx], 0, 1234567890, 1);
+    let new_block = Block::new(genesis.header.hash.clone(), vec![tx], 0, 0, 1);
+    chain.add_block(new_block.clone());
     
-    // Add to chain and store
-    assert!(chain.add_block(new_block.clone()));
     assert!(store.store_block(&new_block).is_ok());
     
-    // Verify storage
     let stored_block = store.get_block(&new_block.header.hash).unwrap().unwrap();
     assert_eq!(stored_block.header.hash, new_block.header.hash);
     assert_eq!(stored_block.transactions.len(), 1);

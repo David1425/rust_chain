@@ -10,7 +10,13 @@ fn main() {
         return;
     }
     
-    let mut cli = CLI::new();
+    let mut cli = match CLI::new() {
+        Ok(cli) => cli,
+        Err(e) => {
+            eprintln!("Error creating CLI: {}", e);
+            return;
+        }
+    };
     
     match args[1].as_str() {
         "init-chain" => {

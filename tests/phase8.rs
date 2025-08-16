@@ -49,7 +49,7 @@ fn test_hd_wallet_address_generation() {
 
 #[test]
 fn test_wallet_commands() {
-    let mut cli = CLI::new();
+    let mut cli = CLI::new_with_path("./test_data/test_wallet_commands").expect("Failed to create CLI");
     
     // Generate new address
     let addr1 = cli.generate_new_address().expect("Failed to generate address");
@@ -70,7 +70,7 @@ fn test_wallet_commands() {
 
 #[test]
 fn test_seed_phrase_backup_restore() {
-    let mut cli1 = CLI::new();
+    let mut cli1 = CLI::new_with_path("./test_data/test_seed_phrase_cli1").expect("Failed to create CLI");
     
     // Generate some addresses
     cli1.generate_new_address().expect("Failed to generate address");
@@ -79,7 +79,7 @@ fn test_seed_phrase_backup_restore() {
     let seed_phrase = cli1.show_seed_phrase();
     
     // Create new CLI and restore
-    let mut cli2 = CLI::new();
+    let mut cli2 = CLI::new_with_path("./test_data/test_seed_phrase_cli2").expect("Failed to create CLI");
     cli2.restore_from_seed(&seed_phrase).expect("Failed to restore wallet");
     
     // Should have the same seed phrase
@@ -88,7 +88,7 @@ fn test_seed_phrase_backup_restore() {
 
 #[test]
 fn test_wallet_backup() {
-    let mut cli = CLI::new();
+    let mut cli = CLI::new_with_path("./test_data/test_wallet_backup").expect("Failed to create CLI");
     cli.generate_new_address().expect("Failed to generate address");
     
     let backup_path = "/tmp/test_wallet_backup.json";
@@ -105,7 +105,7 @@ fn test_wallet_backup() {
 
 #[test]
 fn test_chain_analytics() {
-    let mut cli = CLI::new();
+    let mut cli = CLI::new_with_path("./test_data/test_chain_analytics").expect("Failed to create CLI");
     cli.init_chain().expect("Failed to initialize chain");
     
     // Add some blocks with transactions
@@ -134,7 +134,7 @@ fn test_chain_analytics() {
 
 #[test]
 fn test_block_statistics() {
-    let mut cli = CLI::new();
+    let mut cli = CLI::new_with_path("./test_data/test_block_statistics").expect("Failed to create CLI");
     cli.init_chain().expect("Failed to initialize chain");
     
     let tx = Transaction {
@@ -156,7 +156,7 @@ fn test_block_statistics() {
 
 #[test]
 fn test_transaction_statistics() {
-    let mut cli = CLI::new();
+    let mut cli = CLI::new_with_path("./test_data/test_transaction_statistics").expect("Failed to create CLI");
     cli.init_chain().expect("Failed to initialize chain");
     
     // Add transactions
@@ -192,7 +192,7 @@ fn test_transaction_statistics() {
 
 #[test]
 fn test_chain_integrity_validation() {
-    let mut cli = CLI::new();
+    let mut cli = CLI::new_with_path("./test_data/test_chain_integrity_validation").expect("Failed to create CLI");
     cli.init_chain().expect("Failed to initialize chain");
     
     let tx = Transaction {
@@ -248,7 +248,7 @@ fn test_wallet_deterministic_generation() {
 
 #[test]
 fn test_advanced_wallet_operations() {
-    let mut cli = CLI::new();
+    let mut cli = CLI::new_with_path("./test_data/test_advanced_wallet_operations").expect("Failed to create CLI");
     
     // Test import private key (simplified)
     let imported_addr = cli.import_private_key("dummy_private_key")
