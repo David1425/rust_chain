@@ -1,8 +1,8 @@
-use ed25519_dalek::{Keypair, PublicKey, SecretKey, Signature, Signer};
+use ed25519_dalek::SigningKey;
 use rand::rngs::OsRng;
 
-pub fn generate_keypair() -> Keypair {
-	Keypair::generate(&mut OsRng)
+pub fn generate_keypair() -> SigningKey {
+	let mut csprng = OsRng;
+	SigningKey::generate(&mut csprng)
 }
 
-// TODO: Implement signature verification and transaction signing in Phase 2
