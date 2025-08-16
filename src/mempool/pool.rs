@@ -46,6 +46,7 @@ pub struct MempoolStats {
 }
 
 /// Transaction mempool for pending transactions
+#[derive(Clone)]
 pub struct Mempool {
     /// Pending transactions ordered by priority (fee, then timestamp)
     transactions: VecDeque<MempoolTransaction>,

@@ -15,6 +15,7 @@ pub enum ValidationError {
 }
 
 /// Transaction validator for the mempool
+#[derive(Clone)]
 pub struct TransactionValidator {
     /// Track transaction hashes to prevent duplicates
     seen_transactions: HashSet<String>,

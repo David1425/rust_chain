@@ -1,6 +1,5 @@
 use crate::cli::CLI;
 use crate::network::{NetworkServer, PeerDiscovery};
-use crate::rpc::RpcServer;
 use std::net::SocketAddr;
 use std::thread;
 
@@ -69,41 +68,55 @@ impl NetworkCommands for CLI {
     fn start_rpc_server(&self, rpc_port: u16) -> Result<(), String> {
         println!("Starting production JSON-RPC server on port {}...", rpc_port);
         
-        // Use persistent RPC server
-        let data_path = "./blockchain_data";
+        // Create RPC config
+        let config = crate::rpc::server::RpcConfig {
+            bind_address: format!("127.0.0.1:{}", rpc_port).parse()
+                .map_err(|e| format!("Invalid address: {}", e))?,
+            max_request_size: 1_048_576, // 1MB
+            enable_cors: true,
+            allowed_origins: vec!["*".to_string()],
+        };
         
-        // Create RPC server with persistence
-        match RpcServer::new_persistent(rpc_port, data_path) {
-            Ok(_server) => {
-                println!("✓ RPC server configured successfully!");
-                println!("Server Details:");
-                println!("  Endpoint: http://127.0.0.1:{}/rpc", rpc_port);
-                println!("  Health check: http://127.0.0.1:{}/health", rpc_port);
-                println!("  Metrics: http://127.0.0.1:{}/metrics", rpc_port);
-                println!("  Data path: {}", data_path);
-                println!("");
-                println!("Available JSON-RPC methods:");
-                println!("  getblockcount - Get current block height");
-                println!("  getblockhash <height> - Get block hash by height");
-                println!("  getblock <hash> - Get block details");
-                println!("  getmempoolinfo - Get mempool statistics");
-                println!("  sendrawtransaction <hex> - Submit transaction");
-                println!("  getnewaddress - Generate new wallet address");
-                println!("");
-                println!("Note: In production mode, server runs with:");
-                println!("  ✓ Persistent blockchain storage (RocksDB)");
-                println!("  ✓ Persistent mempool state");
-                println!("  ✓ Persistent wallet");
-                println!("  ✓ CORS enabled");
-                println!("  ✓ Request size limits (1MB)");
-                
-                // Note: Actually starting the server would require async runtime
-                println!("\nTo actually start the server, use: cargo run -- start-rpc {}", rpc_port);
-            },
-            Err(e) => {
-                return Err(format!("Failed to create RPC server: {}", e));
-            }
-        }
+        // Use existing CLI components instead of creating new ones
+        // This avoids the database lock conflict
+        let server = crate::rpc::server::RpcServer::new(
+            config,
+            self.chain.clone(),
+            self.mempool.clone(),
+            self.wallet.clone(),
+        );
+        
+        println!("✓ RPC server configured successfully!");
+        println!("Server Details:");
+        println!("  Endpoint: http://127.0.0.1:{}/rpc", rpc_port);
+        println!("  Health check: http://127.0.0.1:{}/health", rpc_port);
+        println!("  Metrics: http://127.0.0.1:{}/metrics", rpc_port);
+        println!("  Using existing CLI components (shared state)");
+        
+        println!("Available JSON-RPC methods:");
+        println!("  getblockcount - Get current block height");
+        println!("  getblockhash <height> - Get block hash by height");
+        println!("  getblock <hash> - Get block details");
+        println!("  getmempoolinfo - Get mempool statistics");
+        println!("  sendrawtransaction <hex> - Submit transaction");
+        println!("  getnewaddress - Generate new wallet address");
+        
+        println!("Note: Server runs with:");
+        println!("  ✓ Shared blockchain state with CLI");
+        println!("  ✓ Shared mempool state with CLI");
+        println!("  ✓ Shared wallet state with CLI");
+        println!("  ✓ CORS enabled");
+        println!("  ✓ Request size limits (1MB)");
+        
+        // Start the server in an async runtime
+        println!("\nStarting server...");
+        let rt = tokio::runtime::Runtime::new()
+            .map_err(|e| format!("Failed to create async runtime: {}", e))?;
+        
+        rt.block_on(async {
+            server.start().await
+                .map_err(|e| format!("Failed to start server: {}", e))
+        })?;
         
         Ok(())
     }
