@@ -48,12 +48,31 @@ impl CLI {
         // For persistent chains, we don't need a separate BlockStore since it's handled internally
         let block_store = BlockStore::new_with_path("./temp_block_store")?;
         
+        // Create persistent mempool and load existing transactions
+        let mut mempool = Mempool::new_persistent("./mempool.json".to_string());
+        
+        // Create CLI temporarily to get UTXO state for mempool loading
+        let temp_cli = CLI {
+            chain: chain.clone(),
+            block_store: BlockStore::new_with_path("./temp_block_store")?,
+            mining_pool: MiningPool::new(4),
+            fork_choice: ForkChoice::with_genesis_chain(chain.clone()),
+            mempool: Mempool::new(), // Temporary mempool
+            wallet: wallet.clone(),
+        };
+        
+        // Load mempool from persistence
+        let utxo_state = temp_cli.get_current_utxo_state();
+        if let Err(e) = mempool.load_from_file("./mempool.json", &utxo_state) {
+            eprintln!("Warning: Failed to load mempool: {}", e);
+        }
+        
         let cli = CLI {
             chain,
             block_store,
             mining_pool: MiningPool::new(4), // Default difficulty of 4
             fork_choice,
-            mempool: Mempool::new(),
+            mempool,
             wallet,
         };
         

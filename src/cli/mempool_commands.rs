@@ -19,6 +19,11 @@ impl MempoolCommands for CLI {
         
         match self.mempool.add_transaction(transaction.clone(), &utxo_state) {
             Ok(()) => {
+                // Auto-save mempool after adding transaction
+                if let Err(e) = self.mempool.save_to_file("./mempool.json") {
+                    eprintln!("Warning: Failed to save mempool: {}", e);
+                }
+                
                 println!("Transaction added to mempool successfully!");
                 println!("  From: {}", transaction.from);
                 println!("  To: {}", transaction.to);
@@ -133,6 +138,11 @@ impl MempoolCommands for CLI {
             // Remove mined transactions from mempool
             self.mempool.remove_transactions(&transactions);
             
+            // Auto-save mempool after mining
+            if let Err(e) = self.mempool.save_to_file("./mempool.json") {
+                eprintln!("Warning: Failed to save mempool: {}", e);
+            }
+            
             println!("Block successfully mined and added to chain!");
             println!("  Hash: {}", result.hash);
             println!("  Nonce: {}", result.nonce);
@@ -150,6 +160,12 @@ impl MempoolCommands for CLI {
     fn clear_mempool(&mut self) {
         let count = self.mempool.size();
         self.mempool.clear();
+        
+        // Auto-save mempool after clearing
+        if let Err(e) = self.mempool.save_to_file("./mempool.json") {
+            eprintln!("Warning: Failed to save mempool: {}", e);
+        }
+        
         println!("Cleared {} transactions from mempool.", count);
     }
     
