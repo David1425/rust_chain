@@ -1,7 +1,9 @@
 use crate::blockchain::chain::Chain;
 use crate::blockchain::block::{Block, Transaction};
 use crate::storage::block_store::BlockStore;
+use crate::network::server::NetworkServer;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::thread;
 
 pub struct CLI {
     chain: Chain,
@@ -116,6 +118,40 @@ impl CLI {
                 Ok(())
             }
         }
+    }
+    
+    /// Start network node
+    pub fn start_node(&self, listen_address: String, listen_port: u16) -> Result<(), String> {
+        println!("Starting network node on {}:{}...", listen_address, listen_port);
+        
+        let server = NetworkServer::new(self.chain.clone(), listen_address, listen_port);
+        
+        // Start server in a separate thread
+        let server_handle = thread::spawn(move || {
+            if let Err(e) = server.start() {
+                eprintln!("Server error: {}", e);
+            }
+        });
+        
+        println!("Network node started. Press Ctrl+C to stop.");
+        
+        // Wait for the server thread (this will block until the server stops)
+        if let Err(e) = server_handle.join() {
+            eprintln!("Server thread error: {:?}", e);
+        }
+        
+        Ok(())
+    }
+    
+    /// Connect to a peer
+    pub fn connect_peer(&self, address: String, port: u16) -> Result<(), String> {
+        let server = NetworkServer::new(self.chain.clone(), "127.0.0.1".to_string(), 0);
+        
+        server.connect_to_peer(&address, port)
+            .map_err(|e| format!("Failed to connect to peer: {}", e))?;
+        
+        println!("Successfully connected to peer at {}:{}", address, port);
+        Ok(())
     }
 }
 

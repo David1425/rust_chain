@@ -1,6 +1,7 @@
 use crate::blockchain::block::Block;
 use crate::blockchain::genesis::genesis_block;
 
+#[derive(Clone)]
 pub struct Chain {
 	pub blocks: Vec<Block>,
 }
