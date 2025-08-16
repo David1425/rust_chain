@@ -10,9 +10,9 @@ fn test_hd_wallet_creation() {
     // Seed phrase should not be empty
     assert!(!seed_phrase.is_empty());
     
-    // Should be exactly 8 words (simplified implementation)
+    // Should be exactly 24 words (BIP-39 standard for 32 bytes entropy)
     let words: Vec<&str> = seed_phrase.split_whitespace().collect();
-    assert_eq!(words.len(), 8);
+    assert_eq!(words.len(), 24);
 }
 
 #[test]

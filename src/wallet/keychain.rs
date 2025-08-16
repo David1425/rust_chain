@@ -1,7 +1,7 @@
 use crate::crypto::keys::generate_keypair;
 use std::collections::HashMap;
 use sha2::{Sha256, Digest};
-use rand::RngCore;
+use bip39::{Mnemonic, Language};
 
 /// HD Wallet implementing simplified hierarchical deterministic key generation
 pub struct Wallet {
@@ -16,38 +16,52 @@ pub struct Wallet {
 }
 
 impl Wallet {
-    /// Create a new HD wallet with a random seed
+    /// Create a new HD wallet with a random BIP-39 mnemonic
     pub fn new() -> Self {
-        let mut seed = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut seed);
-        
-        // Generate a simple seed phrase (simplified version of BIP-39)
-        let seed_phrase = Self::generate_seed_phrase(&seed);
-        
+        use rand::RngCore;
+        let mut entropy = [0u8; 32];
+        rand::thread_rng().fill_bytes(&mut entropy);
+        let mnemonic = Mnemonic::from_entropy(&entropy).expect("Failed to generate mnemonic");
+        let seed = mnemonic.to_seed_normalized("");
+        let mut master_seed = [0u8; 32];
+        master_seed.copy_from_slice(&seed[..32]);
         Wallet {
-            master_seed: seed,
+            master_seed,
             addresses: HashMap::new(),
             current_index: 0,
-            seed_phrase,
+            seed_phrase: mnemonic.to_string(),
         }
     }
 
     /// Create HD wallet from existing seed
     pub fn from_seed(seed: [u8; 32]) -> Self {
-        let seed_phrase = Self::generate_seed_phrase(&seed);
-        
+        let mnemonic = Mnemonic::from_entropy(&seed).unwrap_or_else(|_| {
+            use rand::RngCore;
+            let mut entropy = [0u8; 32];
+            rand::thread_rng().fill_bytes(&mut entropy);
+            Mnemonic::from_entropy(&entropy).expect("Failed to generate mnemonic")
+        });
         Wallet {
             master_seed: seed,
             addresses: HashMap::new(),
             current_index: 0,
-            seed_phrase,
+            seed_phrase: mnemonic.to_string(),
         }
     }
 
-    /// Create HD wallet from seed phrase
+    /// Create HD wallet from BIP-39 seed phrase
     pub fn from_seed_phrase(phrase: &str) -> Result<Self, String> {
-        let seed = Self::seed_from_phrase(phrase)?;
-        Ok(Self::from_seed(seed))
+        let mnemonic = Mnemonic::parse_in(Language::English, phrase)
+            .map_err(|e| format!("Invalid mnemonic: {}", e))?;
+        let seed = mnemonic.to_seed_normalized("");
+        let mut master_seed = [0u8; 32];
+        master_seed.copy_from_slice(&seed[..32]);
+        Ok(Wallet {
+            master_seed,
+            addresses: HashMap::new(),
+            current_index: 0,
+            seed_phrase: phrase.to_string(),
+        })
     }
 
     /// Get the seed phrase for wallet backup
@@ -55,64 +69,7 @@ impl Wallet {
         &self.seed_phrase
     }
 
-    /// Generate a deterministic seed phrase from seed (simplified)
-    fn generate_seed_phrase(seed: &[u8; 32]) -> String {
-        // Simple word list for demonstration (in real implementation, use BIP-39 wordlist)
-        let words = [
-            "abandon", "ability", "able", "about", "above", "absent", "absorb", "abstract",
-            "absurd", "abuse", "access", "accident", "account", "accuse", "achieve", "acid",
-            "acoustic", "acquire", "across", "act", "action", "actor", "actress", "actual",
-            "adapt", "add", "addict", "address", "adjust", "admit", "adult", "advance",
-        ];
-        
-        // Convert seed to word indices deterministically
-        let mut phrase_words = Vec::new();
-        for i in 0..8 {
-            let start_byte = i * 4;
-            let chunk_bytes = [
-                seed[start_byte],
-                seed[start_byte + 1],
-                seed[start_byte + 2],
-                seed[start_byte + 3],
-            ];
-            let index = u32::from_be_bytes(chunk_bytes) as usize % words.len();
-            phrase_words.push(words[index]);
-        }
-        
-        phrase_words.join(" ")
-    }
-
-    /// Convert seed phrase back to seed (simplified)
-    fn seed_from_phrase(phrase: &str) -> Result<[u8; 32], String> {
-        let words: Vec<&str> = phrase.split_whitespace().collect();
-        if words.len() != 8 {
-            return Err("Seed phrase must contain exactly 8 words".to_string());
-        }
-        
-        // Same word list used for generation
-        let word_list = [
-            "abandon", "ability", "able", "about", "above", "absent", "absorb", "abstract",
-            "absurd", "abuse", "access", "accident", "account", "accuse", "achieve", "acid",
-            "acoustic", "acquire", "across", "act", "action", "actor", "actress", "actual",
-            "adapt", "add", "addict", "address", "adjust", "admit", "adult", "advance",
-        ];
-        
-        // Convert words back to indices and then to bytes
-        let mut seed = [0u8; 32];
-        for (i, word) in words.iter().enumerate() {
-            let index = word_list.iter().position(|&w| w == *word)
-                .ok_or_else(|| format!("Unknown word in seed phrase: {}", word))?;
-            
-            let index_bytes = (index as u32).to_be_bytes();
-            let start_byte = i * 4;
-            seed[start_byte] = index_bytes[0];
-            seed[start_byte + 1] = index_bytes[1];
-            seed[start_byte + 2] = index_bytes[2];
-            seed[start_byte + 3] = index_bytes[3];
-        }
-        
-        Ok(seed)
-    }
+    // ...existing code...
 
     /// Generate a new address using deterministic key derivation
     pub fn generate_address(&mut self) -> Result<String, String> {
