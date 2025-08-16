@@ -190,7 +190,7 @@ impl NetworkServer {
         println!("Received message: {:?}", message.message_type);
         
         match message.message_type {
-            MessageType::Handshake { version, node_id: peer_node_id, chain_height } => {
+            MessageType::Handshake { version, node_id: peer_node_id, chain_height: _ } => {
                 if version > PROTOCOL_VERSION {
                     return MessageResult::Error("Unsupported protocol version".to_string());
                 }

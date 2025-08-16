@@ -21,8 +21,27 @@ fn main() {
         "show-blocks" => {
             cli.show_blocks();
         },
-        "stats" => {
+        "stats" | "chain-info" => {
             cli.show_stats();
+        },
+        "mine-block" => {
+            // Mine a block with a sample transaction
+            let tx = Transaction {
+                from: "alice".to_string(),
+                to: "bob".to_string(),
+                amount: 10,
+                signature: vec![],
+            };
+            
+            if let Err(e) = cli.mine_block(vec![tx]) {
+                eprintln!("Error mining block: {}", e);
+            }
+        },
+        "mining-stats" => {
+            cli.show_mining_stats();
+        },
+        "fork-stats" => {
+            cli.show_fork_stats();
         },
         "add-block" => {
             // Simple example: add a block with a sample transaction
@@ -93,6 +112,10 @@ fn print_help() {
     println!("  rust_chain init-chain               Initialize a new blockchain");
     println!("  rust_chain show-blocks              Show all blocks in the chain");
     println!("  rust_chain stats                    Show blockchain statistics");
+    println!("  rust_chain chain-info               Show blockchain information (alias for stats)");
+    println!("  rust_chain mine-block               Mine a new block with sample transaction");
+    println!("  rust_chain mining-stats             Show mining statistics");
+    println!("  rust_chain fork-stats               Show fork choice statistics");
     println!("  rust_chain add-block                Add a new block with sample transaction");
     println!("  rust_chain get-block <hash>         Get block by hash");
     println!("  rust_chain start-node [addr] [port] Start P2P network node (default: 127.0.0.1:8333)");
