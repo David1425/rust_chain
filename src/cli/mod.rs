@@ -9,14 +9,14 @@ pub mod blockchain_commands;
 pub mod mempool_commands;
 pub mod mining_commands;
 pub mod network_commands;
-pub mod advanced_commands; // Phase 8
+pub mod advanced_commands;
 pub mod utils;
 
 pub use blockchain_commands::BlockchainCommands;
 pub use mempool_commands::MempoolCommands;
 pub use mining_commands::MiningCommands;
 pub use network_commands::NetworkCommands;
-pub use advanced_commands::{WalletCommands, AnalyticsCommands}; // Phase 8
+pub use advanced_commands::{WalletCommands, AnalyticsCommands};
 
 /// Main CLI struct that holds all the blockchain components
 pub struct CLI {

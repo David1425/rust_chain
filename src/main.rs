@@ -323,7 +323,7 @@ fn print_help() {
     println!("  show-peers               Show connected peers");
     println!("  network-stats            Show network statistics");
     println!();
-    println!("PHASE 8 - WALLET COMMANDS:");
+    println!("WALLET COMMANDS:");
     println!("  generate-address         Generate a new wallet address");
     println!("  list-addresses           List all wallet addresses");
     println!("  show-seed                Show wallet seed phrase (keep safe!)");
@@ -331,7 +331,7 @@ fn print_help() {
     println!("  wallet-stats             Show wallet statistics");
     println!("  backup-wallet [path]     Backup wallet to file (default: wallet_backup.json)");
     println!();
-    println!("PHASE 8 - ANALYTICS COMMANDS:");
+    println!("ANALYTICS COMMANDS:");
     println!("  analyze-chain            Comprehensive blockchain analysis");
     println!("  block-stats [height]     Detailed statistics for a block");
     println!("  transaction-stats        Transaction statistics across the chain");
