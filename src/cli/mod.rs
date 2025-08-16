@@ -3,6 +3,7 @@ use crate::storage::block_store::BlockStore;
 use crate::consensus::pow::MiningPool;
 use crate::consensus::fork_choice::ForkChoice;
 use crate::mempool::Mempool;
+use crate::wallet::keychain::Wallet;
 
 pub mod blockchain_commands;
 pub mod mempool_commands;
@@ -22,6 +23,7 @@ pub struct CLI {
     pub mining_pool: MiningPool,
     pub fork_choice: ForkChoice,
     pub mempool: Mempool,
+    pub wallet: Wallet,
 }
 
 impl CLI {
@@ -35,6 +37,7 @@ impl CLI {
             mining_pool: MiningPool::new(4), // Default difficulty of 4
             fork_choice,
             mempool: Mempool::new(),
+            wallet: Wallet::new(),
         }
     }
 }

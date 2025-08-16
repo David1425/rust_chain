@@ -95,6 +95,36 @@ fn main() {
                 eprintln!("Error connecting to peer: {}", e);
             }
         },
+        "start-rpc" => {
+            let port = args.get(2)
+                .and_then(|s| s.parse::<u16>().ok())
+                .unwrap_or(8545);
+            
+            if let Err(e) = cli.start_rpc_server(port) {
+                eprintln!("Error starting RPC server: {}", e);
+            }
+        },
+        "discover-peers" => {
+            let seed_nodes = if args.len() > 2 {
+                args[2..].to_vec()
+            } else {
+                vec!["127.0.0.1:8334".to_string(), "127.0.0.1:8335".to_string()]
+            };
+            
+            if let Err(e) = cli.discover_peers(seed_nodes) {
+                eprintln!("Error discovering peers: {}", e);
+            }
+        },
+        "show-peers" => {
+            if let Err(e) = cli.show_peers() {
+                eprintln!("Error showing peers: {}", e);
+            }
+        },
+        "network-stats" => {
+            if let Err(e) = cli.show_network_stats() {
+                eprintln!("Error showing network stats: {}", e);
+            }
+        },
         "add-transaction" => {
             if args.len() < 5 {
                 eprintln!("Usage: {} add-transaction <from> <to> <amount>", args[0]);
@@ -170,5 +200,9 @@ fn print_help() {
     println!("  rust_chain get-block <hash>         Get block by hash");
     println!("  rust_chain start-node [addr] [port] Start P2P network node (default: 127.0.0.1:8333)");
     println!("  rust_chain connect-peer <addr> <port> Connect to a peer");
+    println!("  rust_chain start-rpc [port]         Start JSON-RPC server (default: 8545)");
+    println!("  rust_chain discover-peers [seeds...] Discover peers using seed nodes");
+    println!("  rust_chain show-peers               Show connected peers");
+    println!("  rust_chain network-stats            Show network statistics");
     println!("  rust_chain help                     Show this help message");
 }

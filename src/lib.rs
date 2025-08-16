@@ -6,5 +6,6 @@ pub mod cli;
 pub mod network;
 pub mod consensus;
 pub mod mempool;
+pub mod rpc;
 
 pub use crypto::signature::verify_signature;
