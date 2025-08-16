@@ -1,4 +1,5 @@
 use crate::blockchain::block::{Block, Transaction};
+use crate::blockchain::genesis::get_genesis_message;
 use crate::cli::CLI;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -9,6 +10,8 @@ pub trait BlockchainCommands {
     fn add_block(&mut self, transactions: Vec<Transaction>) -> Result<(), String>;
     fn show_stats(&self);
     fn get_block(&self, hash: &str) -> Result<(), String>;
+    fn show_genesis(&self);
+    fn show_genesis_info(&self);
 }
 
 impl BlockchainCommands for CLI {
@@ -40,7 +43,14 @@ impl BlockchainCommands for CLI {
             println!("  Transactions: {}", block.transactions.len());
             
             for (j, tx) in block.transactions.iter().enumerate() {
-                println!("    Tx #{}: {} -> {} ({})", j, tx.from, tx.to, tx.amount);
+                // Check if this is a genesis message transaction
+                if let Some(message) = get_genesis_message(tx) {
+                    println!("    Tx #{}: Genesis Message: \"{}\"", j, message);
+                } else if tx.from == "0000000000000000000000000000000000000000" {
+                    println!("    Tx #{}: Coinbase -> {} ({} coins)", j, tx.to, tx.amount);
+                } else {
+                    println!("    Tx #{}: {} -> {} ({})", j, tx.from, tx.to, tx.amount);
+                }
             }
             println!("{:-<80}", "");
         }
@@ -151,5 +161,75 @@ impl BlockchainCommands for CLI {
                 Ok(())
             }
         }
+    }
+    
+    /// Show basic genesis block details
+    fn show_genesis(&self) {
+        if self.chain.blocks.is_empty() {
+            println!("No genesis block found!");
+            return;
+        }
+        
+        let genesis = &self.chain.blocks[0];
+        println!("Genesis Block:");
+        println!("  Hash: {}", genesis.header.hash);
+        println!("  Timestamp: {}", genesis.header.timestamp);
+        println!("  Transactions: {}", genesis.transactions.len());
+        
+        // Show genesis message if present
+        for tx in &genesis.transactions {
+            if let Some(message) = get_genesis_message(tx) {
+                println!("  Message: {}", message);
+                break;
+            }
+        }
+        
+        println!("  Merkle Root: {}", genesis.header.merkle_root);
+        println!();
+    }
+    
+    /// Show detailed genesis block information
+    fn show_genesis_info(&self) {
+        if self.chain.blocks.is_empty() {
+            println!("No genesis block found!");
+            return;
+        }
+        
+        let genesis = &self.chain.blocks[0];
+        println!("=== Genesis Block Information ===");
+        println!("Hash: {}", genesis.header.hash);
+        println!("Timestamp: {} ({})", genesis.header.timestamp, 
+                 if genesis.header.timestamp > 0 {
+                     format!("Unix timestamp")
+                 } else {
+                     "Not set".to_string()
+                 });
+        println!("Previous Hash: {}", genesis.header.previous_hash);
+        println!("Total Transactions: {}", genesis.transactions.len());
+        println!();
+        
+        let mut total_supply = 0u64;
+        let mut coinbase_count = 0;
+        let mut message_found = false;
+        
+        println!("=== Initial Token Distribution ===");
+        for tx in &genesis.transactions {
+            if let Some(message) = get_genesis_message(tx) {
+                println!("Genesis Message: \"{}\"", message);
+                message_found = true;
+            } else if tx.from == "0000000000000000000000000000000000000000" && tx.amount > 0 {
+                println!("• {}: {} coins", tx.to, tx.amount);
+                total_supply += tx.amount;
+                coinbase_count += 1;
+            }
+        }
+        
+        println!();
+        println!("=== Genesis Summary ===");
+        println!("Total Initial Supply: {} coins", total_supply);
+        println!("Coinbase Transactions: {}", coinbase_count);
+        println!("Genesis Message: {}", if message_found { "Yes" } else { "No" });
+        println!("Block Height: {}", genesis.header.height);
+        println!("Network Launch: {}", if genesis.header.timestamp > 0 { "Production" } else { "Development" });
     }
 }

@@ -24,6 +24,12 @@ fn main() {
                 eprintln!("Error initializing chain: {}", e);
             }
         },
+        "show-genesis" => {
+            cli.show_genesis();
+        },
+        "genesis-info" => {
+            cli.show_genesis_info();
+        },
         "show-blocks" => {
             cli.show_blocks();
         },
@@ -394,6 +400,8 @@ fn print_help() {
     println!();
     println!("BASIC COMMANDS:");
     println!("  init-chain               Initialize a new blockchain");
+    println!("  show-genesis             Show genesis block details");
+    println!("  genesis-info             Show detailed genesis block information");
     println!("  show-blocks              Show all blocks in the chain");
     println!("  stats                    Show blockchain statistics");
     println!("  chain-info               Show blockchain information (alias for stats)");
