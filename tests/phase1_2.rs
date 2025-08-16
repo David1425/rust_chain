@@ -11,8 +11,9 @@ use rust_chain::verify_signature;
 fn test_genesis_block() {
     let genesis = genesis_block();
     assert_eq!(genesis.header.previous_hash, "0");
-    assert_eq!(genesis.transactions.len(), 1);
-    assert_eq!(genesis.transactions[0].amount, 50);
+    assert_eq!(genesis.transactions.len(), 2); // Now has 2 transactions
+    assert_eq!(genesis.transactions[0].amount, 1000); // Alice gets 1000
+    assert_eq!(genesis.transactions[1].amount, 500);  // Bob gets 500
 }
 
 #[test]

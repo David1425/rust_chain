@@ -95,6 +95,50 @@ fn main() {
                 eprintln!("Error connecting to peer: {}", e);
             }
         },
+        "add-transaction" => {
+            if args.len() < 5 {
+                eprintln!("Usage: {} add-transaction <from> <to> <amount>", args[0]);
+                return;
+            }
+            
+            let amount = match args[4].parse::<u64>() {
+                Ok(a) => a,
+                Err(_) => {
+                    eprintln!("Invalid amount: {}", args[4]);
+                    return;
+                }
+            };
+            
+            let tx = Transaction {
+                from: args[2].clone(),
+                to: args[3].clone(),
+                amount,
+                signature: vec![],
+            };
+            
+            if let Err(e) = cli.add_transaction_to_mempool(tx) {
+                eprintln!("Error adding transaction: {}", e);
+            }
+        },
+        "mempool-stats" => {
+            cli.show_mempool_stats();
+        },
+        "pending-transactions" => {
+            cli.show_pending_transactions();
+        },
+        "mine-mempool" => {
+            if let Err(e) = cli.mine_block_from_mempool() {
+                eprintln!("Error mining from mempool: {}", e);
+            }
+        },
+        "clear-mempool" => {
+            cli.clear_mempool();
+        },
+        "demo-mempool" => {
+            if let Err(e) = cli.demo_mempool() {
+                eprintln!("Error in mempool demo: {}", e);
+            }
+        },
         "help" | "--help" | "-h" => {
             print_help();
         },
@@ -117,6 +161,12 @@ fn print_help() {
     println!("  rust_chain mining-stats             Show mining statistics");
     println!("  rust_chain fork-stats               Show fork choice statistics");
     println!("  rust_chain add-block                Add a new block with sample transaction");
+    println!("  rust_chain add-transaction <from> <to> <amount> Add transaction to mempool");
+    println!("  rust_chain mempool-stats             Show mempool statistics");
+    println!("  rust_chain pending-transactions      Show all pending transactions");
+    println!("  rust_chain mine-mempool              Mine a block using mempool transactions");
+    println!("  rust_chain clear-mempool             Clear all transactions from mempool
+  rust_chain demo-mempool              Demonstrate complete mempool workflow");
     println!("  rust_chain get-block <hash>         Get block by hash");
     println!("  rust_chain start-node [addr] [port] Start P2P network node (default: 127.0.0.1:8333)");
     println!("  rust_chain connect-peer <addr> <port> Connect to a peer");
