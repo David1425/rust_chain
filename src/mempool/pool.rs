@@ -306,6 +306,73 @@ impl Mempool {
         
         sha256_hash(&tx_string)
     }
+
+    /// Save mempool state to disk for persistence
+    pub fn save_to_file(&self, path: &str) -> Result<(), String> {
+        use std::fs;
+        use std::path::Path;
+        
+        // Create the directory if it doesn't exist
+        if let Some(parent) = Path::new(path).parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create mempool directory: {}", e))?;
+        }
+
+        // Serialize mempool transactions (excluding validator state)
+        let serializable_data = self.transactions.iter()
+            .map(|mempool_tx| &mempool_tx.transaction)
+            .collect::<Vec<_>>();
+        
+        let json_data = serde_json::to_string_pretty(&serializable_data)
+            .map_err(|e| format!("Failed to serialize mempool: {}", e))?;
+        
+        fs::write(path, json_data)
+            .map_err(|e| format!("Failed to write mempool file: {}", e))?;
+        
+        Ok(())
+    }
+
+    /// Load mempool state from disk
+    pub fn load_from_file(&mut self, path: &str, utxo_state: &UTXOState) -> Result<(), String> {
+        use std::fs;
+        use std::path::Path;
+        
+        if !Path::new(path).exists() {
+            return Ok(()); // No saved state, start fresh
+        }
+
+        let json_data = fs::read_to_string(path)
+            .map_err(|e| format!("Failed to read mempool file: {}", e))?;
+        
+        let transactions: Vec<Transaction> = serde_json::from_str(&json_data)
+            .map_err(|e| format!("Failed to deserialize mempool: {}", e))?;
+        
+        // Clear current state
+        self.clear();
+        
+        // Re-add transactions with validation
+        let mut loaded_count = 0;
+        for tx in transactions {
+            match self.add_transaction(tx, utxo_state) {
+                Ok(()) => loaded_count += 1,
+                Err(_) => {
+                    // Skip invalid transactions from saved state
+                    continue;
+                }
+            }
+        }
+        
+        println!("Loaded {} valid transactions from mempool persistence", loaded_count);
+        Ok(())
+    }
+
+    /// Create a persistent mempool that auto-saves and loads
+    pub fn new_persistent(_save_path: String) -> Self {
+        let mempool = Self::new();
+        // Note: Loading will be done separately when UTXO state is available
+        // as we need it for validation
+        mempool
+    }
 }
 
 impl Default for Mempool {

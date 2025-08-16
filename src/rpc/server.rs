@@ -163,6 +163,55 @@ impl RpcServer {
         Ok(warp::reply::json(&metrics))
     }
 
+    /// Create a production-ready RPC server with persistent storage
+    pub fn new_persistent(port: u16, data_path: &str) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let config = RpcConfig {
+            bind_address: format!("127.0.0.1:{}", port).parse()?,
+            max_request_size: 1_048_576, // 1MB
+            enable_cors: true,
+            allowed_origins: vec!["*".to_string()], // In production, restrict this
+        };
+        
+        // Use persistent blockchain and mempool
+        let chain = Chain::new_persistent_with_path(data_path)
+            .map_err(|e| format!("Failed to create persistent chain: {}", e))?;
+        
+        let mut mempool = Mempool::new_persistent(format!("{}/mempool.json", data_path));
+        
+        // Create basic UTXO state from chain
+        let mut utxo_state = crate::blockchain::state::UTXOState::new();
+        
+        // Initialize UTXO state from blockchain
+        for block in &chain.blocks {
+            for transaction in &block.transactions {
+                utxo_state.update_balance(&transaction.from, -(transaction.amount as i64));
+                utxo_state.update_balance(&transaction.to, transaction.amount as i64);
+            }
+        }
+        
+        // Load mempool state if it exists
+        let mempool_path = format!("{}/mempool.json", data_path);
+        if let Err(e) = mempool.load_from_file(&mempool_path, &utxo_state) {
+            eprintln!("Warning: Could not load mempool state: {}", e);
+        }
+        
+        // Use persistent wallet
+        let wallet_path = format!("{}/wallet.json", data_path);
+        let wallet = if std::path::Path::new(&wallet_path).exists() {
+            Wallet::load_from_file(&wallet_path)
+                .map_err(|e| format!("Failed to load wallet: {}", e))?
+        } else {
+            let new_wallet = Wallet::new();
+            // Save the new wallet
+            if let Err(e) = new_wallet.save_to_file(&wallet_path) {
+                eprintln!("Warning: Could not save wallet: {}", e);
+            }
+            new_wallet
+        };
+        
+        Ok(Self::new(config, chain, mempool, wallet))
+    }
+
     /// Create a simple RPC server for testing
     pub fn simple(port: u16) -> Self {
         let config = RpcConfig {

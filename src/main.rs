@@ -1,4 +1,4 @@
-use rust_chain::cli::{CLI, BlockchainCommands, MempoolCommands, MiningCommands, NetworkCommands, WalletCommands, AnalyticsCommands};
+use rust_chain::cli::{CLI, BlockchainCommands, MempoolCommands, MiningCommands, NetworkCommands, WalletCommands, AnalyticsCommands, TransactionCommands};
 use rust_chain::blockchain::block::Transaction;
 use std::env;
 
@@ -50,16 +50,17 @@ fn main() {
             cli.show_fork_stats();
         },
         "add-block" => {
-            // Simple example: add a block with a sample transaction
-            let tx = Transaction {
-                from: "alice".to_string(),
-                to: "bob".to_string(),
-                amount: 10,
-                signature: vec![],
-            };
+            // Get transactions from mempool for the block
+            let utxo_state = cli.get_current_utxo_state();
+            let transactions = cli.mempool.get_transactions_for_block(10, &utxo_state);
             
-            if let Err(e) = cli.add_block(vec![tx]) {
-                eprintln!("Error adding block: {}", e);
+            if transactions.is_empty() {
+                eprintln!("No valid transactions in mempool to add to block. Use 'add-transaction' first.");
+            } else {
+                println!("Adding block with {} transactions from mempool...", transactions.len());
+                if let Err(e) = cli.add_block(transactions) {
+                    eprintln!("Error adding block: {}", e);
+                }
             }
         },
         "get-block" => {
@@ -281,6 +282,103 @@ fn main() {
                 }
             }
         },
+        // **Phase 8 - Transaction Persistence Commands**
+        "get-transaction" => {
+            if args.len() < 3 {
+                eprintln!("Usage: {} get-transaction <transaction_hash>", args[0]);
+                return;
+            }
+            
+            match cli.get_transaction(&args[2]) {
+                Ok(Some(tx)) => {
+                    println!("Transaction found:");
+                    println!("  From: {}", tx.from);
+                    println!("  To: {}", tx.to);
+                    println!("  Amount: {}", tx.amount);
+                    println!("  Signature: {} bytes", tx.signature.len());
+                },
+                Ok(None) => println!("Transaction not found"),
+                Err(e) => eprintln!("Error getting transaction: {}", e),
+            }
+        },
+        "get-transaction-info" => {
+            if args.len() < 3 {
+                eprintln!("Usage: {} get-transaction-info <transaction_hash>", args[0]);
+                return;
+            }
+            
+            match cli.get_transaction_info(&args[2]) {
+                Ok(Some(info)) => {
+                    println!("Transaction Information:");
+                    println!("  Hash: {}", info.hash);
+                    println!("  From: {}", info.transaction.from);
+                    println!("  To: {}", info.transaction.to);
+                    println!("  Amount: {}", info.transaction.amount);
+                    if let Some(block_hash) = info.block_hash {
+                        println!("  Block Hash: {}", block_hash);
+                    }
+                    if let Some(block_height) = info.block_height {
+                        println!("  Block Height: {}", block_height);
+                    }
+                    if let Some(tx_index) = info.transaction_index {
+                        println!("  Transaction Index: {}", tx_index);
+                    }
+                    if let Some(timestamp) = info.timestamp {
+                        println!("  Timestamp: {}", timestamp);
+                    }
+                },
+                Ok(None) => println!("Transaction not found"),
+                Err(e) => eprintln!("Error getting transaction info: {}", e),
+            }
+        },
+        "get-address-transactions" => {
+            if args.len() < 3 {
+                eprintln!("Usage: {} get-address-transactions <address>", args[0]);
+                return;
+            }
+            
+            match cli.get_address_transactions(&args[2]) {
+                Ok(transactions) => {
+                    if transactions.is_empty() {
+                        println!("No transactions found for address: {}", args[2]);
+                    } else {
+                        println!("Transactions for address {}:", args[2]);
+                        for (i, tx) in transactions.iter().enumerate() {
+                            println!("  {}. {} -> {} ({})", 
+                                i + 1, tx.from, tx.to, tx.amount);
+                            if let Some(height) = tx.block_height {
+                                println!("     Block: {}", height);
+                            }
+                            if tx.is_sender && tx.is_recipient {
+                                println!("     Type: Self-transfer");
+                            } else if tx.is_sender {
+                                println!("     Type: Sent");
+                            } else {
+                                println!("     Type: Received");
+                            }
+                        }
+                    }
+                },
+                Err(e) => eprintln!("Error getting address transactions: {}", e),
+            }
+        },
+        "get-address-balance" => {
+            if args.len() < 3 {
+                eprintln!("Usage: {} get-address-balance <address>", args[0]);
+                return;
+            }
+            
+            match cli.get_address_balance(&args[2]) {
+                Ok(balance) => {
+                    println!("Address Balance for {}:", balance.address);
+                    println!("  Current Balance: {}", balance.balance);
+                    println!("  Total Sent: {}", balance.total_sent);
+                    println!("  Total Received: {}", balance.total_received);
+                    println!("  Transaction Count: {}", balance.transaction_count);
+                },
+                Err(e) => eprintln!("Error getting address balance: {}", e),
+            }
+        },
         "help" | "--help" | "-h" => {
             print_help();
         },
@@ -305,7 +403,7 @@ fn print_help() {
     println!("  mine-block               Mine a new block with sample transaction");
     println!("  mining-stats             Show mining statistics");
     println!("  fork-stats               Show fork choice statistics");
-    println!("  add-block                Add a new block with sample transaction");
+    println!("  add-block                Add a block using mempool transactions");
     println!("  mine-mempool             Mine a block using mempool transactions");
     println!();
     println!("TRANSACTION & MEMPOOL:");
@@ -337,4 +435,10 @@ fn print_help() {
     println!("  transaction-stats        Transaction statistics across the chain");
     println!("  validate-chain           Validate blockchain integrity");
     println!("  get-block <hash>         Get block by hash");
+    println!();
+    println!("TRANSACTION PERSISTENCE:");
+    println!("  get-transaction <hash>   Get transaction by hash");
+    println!("  get-transaction-info <hash> Get detailed transaction information");
+    println!("  get-address-transactions <addr> Get all transactions for an address");
+    println!("  get-address-balance <addr> Get address balance and transaction summary");
 }

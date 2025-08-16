@@ -37,7 +37,7 @@ impl ForkChoice {
         
         // Special handling for genesis blocks (parent hash is "0")
         if parent_hash == "0" {
-            let chain = Chain { blocks: vec![block] };
+            let chain = Chain::from_blocks(vec![block]);
             let is_new_best = self.is_better_chain(&chain);
             
             self.chains.insert(block_hash.clone(), chain);
@@ -200,7 +200,7 @@ impl ForkChoice {
                         break;
                     }
                 }
-                return Some(Chain { blocks: new_chain_blocks });
+                return Some(Chain::from_blocks(new_chain_blocks));
             }
         }
         

@@ -46,6 +46,7 @@ fn test_peer_info_serialization() {
         port: 8333,
         node_id: "test_node_123".to_string(),
         last_seen: 1640995200,
+        chain_height: 42,
     };
     
     let message = NetworkMessage::new(MessageType::Peers(vec![peer.clone()]));
@@ -57,6 +58,7 @@ fn test_peer_info_serialization() {
         assert_eq!(peers[0].address, peer.address);
         assert_eq!(peers[0].port, peer.port);
         assert_eq!(peers[0].node_id, peer.node_id);
+        assert_eq!(peers[0].chain_height, peer.chain_height);
     } else {
         panic!("Expected Peers message type");
     }

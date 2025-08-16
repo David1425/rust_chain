@@ -16,7 +16,7 @@ pub use blockchain_commands::BlockchainCommands;
 pub use mempool_commands::MempoolCommands;
 pub use mining_commands::MiningCommands;
 pub use network_commands::NetworkCommands;
-pub use advanced_commands::{WalletCommands, AnalyticsCommands};
+pub use advanced_commands::{WalletCommands, AnalyticsCommands, TransactionCommands};
 
 /// Main CLI struct that holds all the blockchain components
 pub struct CLI {
@@ -30,31 +30,75 @@ pub struct CLI {
 
 impl CLI {
     pub fn new() -> Result<Self, String> {
-        let chain = Chain::new();
+        // Use persistent chain
+        let chain = Chain::new_persistent()?;
         let fork_choice = ForkChoice::with_genesis_chain(chain.clone());
         
-        Ok(CLI {
+        // Load existing wallet or create new one
+        let wallet_path = "wallet.json";
+        let wallet = if Wallet::wallet_exists(wallet_path) {
+            Wallet::load_from_file(wallet_path).unwrap_or_else(|e| {
+                eprintln!("Warning: Failed to load wallet: {}. Creating new wallet.", e);
+                Wallet::new()
+            })
+        } else {
+            Wallet::new()
+        };
+        
+        // For persistent chains, we don't need a separate BlockStore since it's handled internally
+        let block_store = BlockStore::new_with_path("./temp_block_store")?;
+        
+        let cli = CLI {
             chain,
-            block_store: BlockStore::new()?,
+            block_store,
             mining_pool: MiningPool::new(4), // Default difficulty of 4
             fork_choice,
             mempool: Mempool::new(),
-            wallet: Wallet::new(),
-        })
+            wallet,
+        };
+        
+        // Save wallet to persist any changes
+        if let Err(e) = cli.wallet.save_to_file(wallet_path) {
+            eprintln!("Warning: Failed to save wallet: {}", e);
+        }
+        
+        Ok(cli)
     }
     
     pub fn new_with_path(db_path: &str) -> Result<Self, String> {
-        let chain = Chain::new();
+        // Use persistent chain with custom path
+        let chain = Chain::new_persistent_with_path(db_path)?;
         let fork_choice = ForkChoice::with_genesis_chain(chain.clone());
         
-        Ok(CLI {
+        // Load existing wallet or create new one (using custom path)
+        let wallet_path = format!("{}/wallet.json", db_path);
+        let wallet = if Wallet::wallet_exists(&wallet_path) {
+            Wallet::load_from_file(&wallet_path).unwrap_or_else(|e| {
+                eprintln!("Warning: Failed to load wallet: {}. Creating new wallet.", e);
+                Wallet::new()
+            })
+        } else {
+            Wallet::new()
+        };
+
+        // Use a different path for the CLI's block store to avoid conflicts
+        let cli_block_store_path = format!("{}/cli_blocks", db_path);
+        let cli = CLI {
             chain,
-            block_store: BlockStore::new_with_path(db_path)?,
+            block_store: BlockStore::new_with_path(&cli_block_store_path)?,
             mining_pool: MiningPool::new(4), // Default difficulty of 4
             fork_choice,
             mempool: Mempool::new(),
-            wallet: Wallet::new(),
-        })
+            wallet,
+        };
+        
+        // Ensure directory exists and save wallet
+        std::fs::create_dir_all(db_path).map_err(|e| format!("Failed to create directory: {}", e))?;
+        if let Err(e) = cli.wallet.save_to_file(&wallet_path) {
+            eprintln!("Warning: Failed to save wallet: {}", e);
+        }
+        
+        Ok(cli)
     }
 }
 

@@ -6,6 +6,7 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::blockchain::chain::Chain;
+use crate::blockchain::block::Block;
 use crate::network::protocol::{
     NetworkMessage, MessageType, MessageResult, NetworkError, PeerInfo, PROTOCOL_VERSION
 };
@@ -190,7 +191,7 @@ impl NetworkServer {
         println!("Received message: {:?}", message.message_type);
         
         match message.message_type {
-            MessageType::Handshake { version, node_id: peer_node_id, chain_height: _ } => {
+            MessageType::Handshake { version, node_id: peer_node_id, chain_height } => {
                 if version > PROTOCOL_VERSION {
                     return MessageResult::Error("Unsupported protocol version".to_string());
                 }
@@ -201,6 +202,7 @@ impl NetworkServer {
                     port: peer_addr.port(),
                     node_id: peer_node_id,
                     last_seen: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+                    chain_height,
                 };
                 
                 peers.lock().unwrap().insert(peer_info.node_id.clone(), peer_info);
@@ -309,4 +311,161 @@ impl NetworkServer {
         println!("Connected to peer at {}", peer_address);
         Ok(())
     }
+
+    /// Synchronize blockchain with peers
+    pub fn sync_blockchain(&self) -> Result<(), NetworkError> {
+        let peers_guard = self.peers.lock().unwrap();
+        if peers_guard.is_empty() {
+            return Err(NetworkError::ConnectionFailed("No peers available for sync".to_string()));
+        }
+
+        // Find the best peer (highest chain height)
+        let best_peer = peers_guard.values()
+            .max_by_key(|peer| peer.chain_height)
+            .cloned();
+        drop(peers_guard);
+
+        if let Some(peer) = best_peer {
+            let chain_guard = self.chain.lock().unwrap();
+            let our_height = chain_guard.blocks.len() as u64;
+            drop(chain_guard);
+
+            if peer.chain_height > our_height {
+                println!("Syncing with peer {} (height: {} vs our height: {})", 
+                    peer.address, peer.chain_height, our_height);
+                
+                // Request blocks from where we left off
+                let peer_address = format!("{}:{}", peer.address, peer.port);
+                self.request_blocks_from_peer(&peer_address, our_height)?;
+            } else {
+                println!("Blockchain is up to date");
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Request blocks from a specific peer
+    fn request_blocks_from_peer(&self, peer_address: &str, _start_height: u64) -> Result<(), NetworkError> {
+        let mut stream = TcpStream::connect(peer_address)
+            .map_err(|e| NetworkError::ConnectionFailed(format!("Failed to connect for sync: {}", e)))?;
+
+        // Get our latest block hash
+        let chain_guard = self.chain.lock().unwrap();
+        let start_hash = if let Some(block) = chain_guard.blocks.last() {
+            block.header.hash.clone()
+        } else {
+            "0".repeat(64) // Genesis hash
+        };
+        drop(chain_guard);
+
+        // Request blocks
+        let get_blocks = NetworkMessage::new(MessageType::GetBlocks {
+            start_hash,
+            count: 100, // Request up to 100 blocks at a time
+        });
+
+        Self::send_message(&mut stream, get_blocks)?;
+
+        // Read response
+        match Self::read_message(&mut stream)? {
+            message if matches!(message.message_type, MessageType::Blocks(_)) => {
+                if let MessageType::Blocks(blocks) = message.message_type {
+                    self.process_sync_blocks(blocks)?;
+                }
+            },
+            _ => {
+                return Err(NetworkError::ProtocolError("Unexpected response to GetBlocks".to_string()));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Process blocks received during sync
+    fn process_sync_blocks(&self, blocks: Vec<Block>) -> Result<(), NetworkError> {
+        let mut chain_guard = self.chain.lock().unwrap();
+        let mut synced_count = 0;
+
+        for block in blocks {
+            // Validate and add block
+            if chain_guard.validate_block(&block) {
+                chain_guard.blocks.push(block.clone());
+                synced_count += 1;
+                println!("Synced block {} (height: {})", block.header.hash, block.header.height);
+            } else {
+                println!("Warning: Invalid block received during sync: {}", block.header.hash);
+            }
+        }
+
+        drop(chain_guard);
+        println!("Successfully synced {} blocks", synced_count);
+        Ok(())
+    }
+
+    /// Broadcast a block to all connected peers
+    pub fn broadcast_block(&self, block: &Block) -> Result<(), NetworkError> {
+        let peers_guard = self.peers.lock().unwrap();
+        let peers: Vec<_> = peers_guard.values().cloned().collect();
+        drop(peers_guard);
+
+        for peer in peers {
+            let peer_address = format!("{}:{}", peer.address, peer.port);
+            if let Err(e) = self.send_block_to_peer(&peer_address, block) {
+                eprintln!("Failed to broadcast block to peer {}: {}", peer_address, e);
+                // Continue with other peers
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Send a block to a specific peer
+    fn send_block_to_peer(&self, peer_address: &str, block: &Block) -> Result<(), NetworkError> {
+        let mut stream = TcpStream::connect(peer_address)
+            .map_err(|e| NetworkError::ConnectionFailed(format!("Failed to connect to peer: {}", e)))?;
+
+        let new_block = NetworkMessage::new(MessageType::NewBlock(block.clone()));
+        Self::send_message(&mut stream, new_block)?;
+
+        println!("Broadcasted block {} to {}", block.header.hash, peer_address);
+        Ok(())
+    }
+
+    /// Get list of connected peers
+    pub fn get_connected_peers(&self) -> Vec<PeerInfo> {
+        let peers_guard = self.peers.lock().unwrap();
+        peers_guard.values().cloned().collect()
+    }
+
+    /// Get network statistics
+    pub fn get_network_stats(&self) -> NetworkStats {
+        let peers_guard = self.peers.lock().unwrap();
+        let chain_guard = self.chain.lock().unwrap();
+        
+        let connected_peers = peers_guard.len();
+        let our_height = chain_guard.blocks.len() as u64;
+        let max_peer_height = peers_guard.values()
+            .map(|p| p.chain_height)
+            .max()
+            .unwrap_or(0);
+
+        NetworkStats {
+            connected_peers,
+            our_chain_height: our_height,
+            max_peer_height,
+            is_synced: our_height >= max_peer_height,
+            node_id: self.node_id.clone(),
+        }
+    }
+}
+
+/// Network statistics
+#[derive(Debug, Clone)]
+pub struct NetworkStats {
+    pub connected_peers: usize,
+    pub our_chain_height: u64,
+    pub max_peer_height: u64,
+    pub is_synced: bool,
+    pub node_id: String,
 }

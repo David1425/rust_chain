@@ -2,10 +2,20 @@ use rust_chain::blockchain::block::{Block, Transaction};
 use rust_chain::blockchain::chain::Chain;
 use rust_chain::storage::{block_store::BlockStore, db::Database};
 use rust_chain::cli::{CLI, BlockchainCommands};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+fn get_unique_test_path(base_name: &str) -> String {
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    format!("./test_data/{}_{}", base_name, timestamp)
+}
 
 #[test]
 fn test_database_operations() {
-    let db = Database::new_with_path("./test_data/test_database_operations").expect("Failed to create database");
+    let test_path = get_unique_test_path("test_database_operations");
+    let db = Database::new_with_path(&test_path).expect("Failed to create database");
     
     // Test put and get
     db.put("key1".to_string(), b"value1".to_vec()).expect("Failed to put");
@@ -23,7 +33,8 @@ fn test_database_operations() {
 
 #[test]
 fn test_block_store() {
-    let store = BlockStore::new_with_path("./test_data/test_block_store").expect("Failed to create block store");
+    let test_path = get_unique_test_path("test_block_store");
+    let store = BlockStore::new_with_path(&test_path).expect("Failed to create block store");
     
     // Create a test block
     let tx = Transaction {
@@ -55,7 +66,8 @@ fn test_block_store() {
 
 #[test]
 fn test_cli_initialization() {
-    let mut cli = CLI::new_with_path("./test_data/test_cli_initialization").expect("Failed to create CLI");
+    let test_path = get_unique_test_path("test_cli_initialization");
+    let mut cli = CLI::new_with_path(&test_path).expect("Failed to create CLI");
     
     // Test init chain
     assert!(cli.init_chain().is_ok());
@@ -74,7 +86,8 @@ fn test_cli_initialization() {
 #[test]
 fn test_chain_with_storage() {
     let mut chain = Chain::new();
-    let store = BlockStore::new_with_path("./test_data/test_chain_with_storage").expect("Failed to create block store");
+    let test_path = get_unique_test_path("test_chain_with_storage");
+    let store = BlockStore::new_with_path(&test_path).expect("Failed to create block store");
     
     // Store genesis block
     let genesis = &chain.blocks[0];

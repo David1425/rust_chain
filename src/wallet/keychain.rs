@@ -2,11 +2,18 @@ use crate::crypto::keys::generate_keypair;
 use std::collections::HashMap;
 use sha2::{Sha256, Digest};
 use bip39::{Mnemonic, Language};
+use serde::{Serialize, Deserialize};
+use std::fs;
+use std::path::Path;
 
 /// HD Wallet implementing simplified hierarchical deterministic key generation
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Wallet {
     /// Master seed for key derivation
+    #[serde(skip)]
     master_seed: [u8; 32],
+    /// Master seed as hex string for persistence
+    master_seed_hex: String,
     /// Generated addresses with their derivation paths
     addresses: HashMap<String, u32>,
     /// Current address index for key derivation
@@ -27,6 +34,7 @@ impl Wallet {
         master_seed.copy_from_slice(&seed[..32]);
         Wallet {
             master_seed,
+            master_seed_hex: hex::encode(master_seed),
             addresses: HashMap::new(),
             current_index: 0,
             seed_phrase: mnemonic.to_string(),
@@ -43,6 +51,7 @@ impl Wallet {
         });
         Wallet {
             master_seed: seed,
+            master_seed_hex: hex::encode(seed),
             addresses: HashMap::new(),
             current_index: 0,
             seed_phrase: mnemonic.to_string(),
@@ -58,6 +67,7 @@ impl Wallet {
         master_seed.copy_from_slice(&seed[..32]);
         Ok(Wallet {
             master_seed,
+            master_seed_hex: hex::encode(master_seed),
             addresses: HashMap::new(),
             current_index: 0,
             seed_phrase: phrase.to_string(),
@@ -161,6 +171,39 @@ impl Wallet {
         let keypair = generate_keypair();
         let address = hex::encode(keypair.verifying_key().as_bytes());
         LegacyWallet { address }
+    }
+
+    /// Save wallet to file
+    pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), String> {
+        let json = serde_json::to_string_pretty(self)
+            .map_err(|e| format!("Failed to serialize wallet: {}", e))?;
+        
+        fs::write(path, json)
+            .map_err(|e| format!("Failed to write wallet file: {}", e))?;
+        
+        Ok(())
+    }
+
+    /// Load wallet from file
+    pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self, String> {
+        let json = fs::read_to_string(path)
+            .map_err(|e| format!("Failed to read wallet file: {}", e))?;
+        
+        let mut wallet: Wallet = serde_json::from_str(&json)
+            .map_err(|e| format!("Failed to deserialize wallet: {}", e))?;
+        
+        // Restore master_seed from hex string
+        wallet.master_seed = hex::decode(&wallet.master_seed_hex)
+            .map_err(|e| format!("Invalid hex in master seed: {}", e))?
+            .try_into()
+            .map_err(|_| "Master seed must be exactly 32 bytes")?;
+        
+        Ok(wallet)
+    }
+
+    /// Check if wallet file exists
+    pub fn wallet_exists<P: AsRef<Path>>(path: P) -> bool {
+        path.as_ref().exists()
     }
 }
 

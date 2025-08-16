@@ -59,10 +59,49 @@ impl BlockchainCommands for CLI {
         
         let height = self.chain.blocks.len() as u64;
         
+        // Use proper mining for nonce calculation
+        let difficulty = 4; // Standard difficulty
+        let mut nonce = 0u64;
+        
+        // Calculate merkle root first
+        let merkle_root = if transactions.is_empty() {
+            crate::crypto::hash::sha256_hash("")
+        } else {
+            let mut hashes: Vec<String> = transactions.iter()
+                .map(|tx| crate::crypto::hash::sha256_hash(&format!("{:?}", tx)))
+                .collect();
+            while hashes.len() > 1 {
+                let mut next_level = Vec::new();
+                for i in (0..hashes.len()).step_by(2) {
+                    let left = &hashes[i];
+                    let right = if i + 1 < hashes.len() { &hashes[i + 1] } else { left };
+                    next_level.push(crate::crypto::hash::sha256_hash(&(left.clone() + right)));
+                }
+                hashes = next_level;
+            }
+            hashes[0].clone()
+        };
+        
+        // Mine for correct nonce
+        loop {
+            let block_header_data = format!("{}{}{}{}{}",
+                previous_hash, merkle_root, timestamp, height, nonce);
+            let hash = crate::crypto::hash::sha256_hash(&block_header_data);
+            
+            if hash.starts_with(&"0".repeat(difficulty)) {
+                break;
+            }
+            nonce += 1;
+            
+            if nonce % 10000 == 0 {
+                println!("Mining... attempts: {}", nonce);
+            }
+        }
+        
         let new_block = Block::new(
             previous_hash,
             transactions,
-            0, // Simple nonce for now
+            nonce,
             timestamp,
             height,
         );

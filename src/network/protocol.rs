@@ -141,6 +141,7 @@ pub struct PeerInfo {
     pub port: u16,
     pub node_id: String,
     pub last_seen: u64,
+    pub chain_height: u64,
 }
 
 /// Complete network message with header
