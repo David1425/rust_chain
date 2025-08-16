@@ -1,4 +1,4 @@
-use rust_chain::cli::commands::CLI;
+use rust_chain::cli::{CLI, BlockchainCommands, MempoolCommands, MiningCommands, NetworkCommands};
 use rust_chain::blockchain::block::Transaction;
 use std::env;
 

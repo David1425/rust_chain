@@ -1,7 +1,7 @@
 use rust_chain::blockchain::block::{Block, Transaction};
 use rust_chain::blockchain::chain::Chain;
-use rust_chain::storage::{db::Database, block_store::BlockStore};
-use rust_chain::cli::commands::CLI;
+use rust_chain::storage::{block_store::BlockStore, db::Database};
+use rust_chain::cli::{CLI, BlockchainCommands};
 
 #[test]
 fn test_database_operations() {
